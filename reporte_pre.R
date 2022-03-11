@@ -3,17 +3,17 @@ library(magrittr)
 library(ggplot2)
 
 ## Acá va la url de la lista de participantes
-url <- "https://docs.google.com/spreadsheets/d/1yGu993XnpwE1v-N4paXAr58GdUYAGVDFSeZwIUuJ67c/edit#gid=1804838870"
+url <- "https://docs.google.com/spreadsheets/d/12hq4HeIpjfN07La4qsHDrcY9f4Q-1yBwGni8LJs_kW4/edit#gid=1804838870"
 
 if (!googlesheets4::gs4_has_token()) {
   stop("Hay que sacar el token!")
-  
+
 }
-lista_raw <- googlesheets4::read_sheet(url, skip = 1) %>% 
+lista_raw <- googlesheets4::read_sheet(url, skip = 1) %>%
   as.data.table()
 
 
-columnas <- c(nombre = "Name", 
+columnas <- c(nombre = "Name",
                    pais = "País",
                    provincia = 'Si estás en Argentina, provincia o distrito, si no completá la opción "other". Seleccioná la provincia/distrito en la cual tenés la mayor cantidad de horas de docencia',
                    docs = "¿Cuál es tu experiencia con las siguientes herramientas? [Google Docs]",
@@ -23,39 +23,39 @@ columnas <- c(nombre = "Name",
                    conexion = "¿Cómo es el acceso a internet desde donde te conectarías para aprender y/o enseñar?",
                    n_estudiantes = "Aproximadamente, ¿qué cantidad de estudiantes que esperás en tu próxima clase? Completá con 0, si no vas a enseñar en 2020",
                    n_años = "Aproximadamente, ¿cuántos años hace que diste tu primera clase? Elegí 0 si nunca enseñaste."
-                   
+
                    )
 
-lista <- lista_raw[, ..columnas] %>% 
-  setnames(columnas, names(columnas)) %>% 
+lista <- lista_raw[, ..columnas] %>%
+  setnames(columnas, names(columnas)) %>%
   .[]
 
 
-docs <- lista[docs == "Nunca la usé"] %>% 
+docs <- lista[docs == "Nunca la usé"] %>%
   .[, .(nombre, barrera = "Nunca usó google docs")]
 
 
-zoom <- lista[zoom == "Nunca la usé"] %>% 
+zoom <- lista[zoom == "Nunca la usé"] %>%
   .[, .(nombre, barrera = "Nunca usó zoom")]
 
 
-barrera <- lista[barrera != "No tengo ninguna barrera de este tipo"] %>% 
+barrera <- lista[barrera != "No tengo ninguna barrera de este tipo"] %>%
   .[, .(nombre, barrera)]
 
 
-discapacidad <- lista[discapacidad != "No tengo discapacidad o impedimento"] %>% 
+discapacidad <- lista[discapacidad != "No tengo discapacidad o impedimento"] %>%
   .[, .(nombre, barrera = discapacidad)]
 
 
-conexion <- lista[!(grepl("aceptable", conexion))] %>% 
+conexion <- lista[!(grepl("aceptable", conexion))] %>%
   .[, .(nombre, barrera = "Conexión limitada")]
 
-especiales <- rbind(docs, zoom, barrera, discapacidad, conexion) %>% 
-  na.omit() %>% 
-  .[, n := .N, by = nombre] %>% 
-  .[order(-n)] %>% 
+especiales <- rbind(docs, zoom, barrera, discapacidad, conexion) %>%
+  na.omit() %>%
+  .[, n := .N, by = nombre] %>%
+  .[order(-n)] %>%
   .[by = nombre, j = paste0("    - ", barrera, collapse = "\n")] %>%
-  .[, paste0("* ", nombre, "\n", V1, "\n")] %>% 
+  .[, paste0("* ", nombre, "\n", V1, "\n")] %>%
   paste0(collapse = "\n")
 
 
@@ -63,48 +63,48 @@ especiales <- rbind(docs, zoom, barrera, discapacidad, conexion) %>%
 
 text_hist <- function(labels, n, sort = FALSE) {
   # h <- hist(x, ...,plot = FALSE)
-  
+
   zero <- n == 0
   if (sort) {
     order <- order(-n)
     n <- n[order]
     labels <- labels[order]
   }
-  
-  
+
+
   lapply(n[!zero], function(x) {
     if (x > 0) {
       paste0(rep("*", x), collapse = "")
     } else {
       ""
     }
-  }) %>% 
+  }) %>%
     unlist() -> stars
-  
+
   labels <- formatC(labels[!zero], width = max(nchar(labels)))
-  
+
   paste(labels, stars, sep = "|", collapse= "\n")
 }
 
 
-estudiantes <- hist(lista$n_estudiantes, plot = FALSE) %>% 
-  with(., text_hist(paste0("(", breaks[-length(breaks)], "; ", breaks[-1], ")"), 
+estudiantes <- hist(lista$n_estudiantes, plot = FALSE) %>%
+  with(., text_hist(paste0("(", breaks[-length(breaks)], "; ", breaks[-1], ")"),
                     counts))
-  
-años <- split(lista, unlist(lista$n_años)) %>% 
-  lapply(nrow) %>% 
+
+años <- split(lista, unlist(lista$n_años)) %>%
+  lapply(nrow) %>%
   {text_hist(names(.), unlist(.))}
 
 
 
-paises <- split(lista, unlist(lista$pais)) %>% 
-  lapply(nrow) %>% 
+paises <- split(lista, unlist(lista$pais)) %>%
+  lapply(nrow) %>%
   {text_hist(names(.), unlist(.), sort = TRUE)}
 
-provincias <- lista[pais == "Argentina"] %>% 
-  .[provincia == "Ciudad Autónoma de Buenos Aires", provincia := "CABA"] %>% 
-  split(., unlist(.$provincia)) %>% 
-  lapply(nrow) %>% 
+provincias <- lista[pais == "Argentina"] %>%
+  .[provincia == "Ciudad Autónoma de Buenos Aires", provincia := "CABA"] %>%
+  split(., unlist(.$provincia)) %>%
+  lapply(nrow) %>%
   {text_hist(names(.), unlist(.), sort = TRUE)}
 
 
@@ -124,24 +124,24 @@ cat(reporte)
 cat(sort(lista$nombre), sep = "\n")
 
 
-# La idea es tener balance de género, peroque siempre sea 50% exacto 
+# La idea es tener balance de género, peroque siempre sea 50% exacto
 # se siente artificial, así que le mando entre 40% y 60%.
 fem <- runif(1, .4, .6)
 fem <- round(fem*nrow(lista))
 mas <- nrow(lista) - fem
 
-gen <- list(F = fem, 
+gen <- list(F = fem,
             M = mas)
 
 nombres <- fread("datos/nombres_procesados.csv")
 
-personas <- nombres[, sample(nombre, gen[[genero]], prob = log(cantidad), replace = FALSE), by = genero] %>% 
+personas <- nombres[, sample(nombre, gen[[genero]], prob = log(cantidad), replace = FALSE), by = genero] %>%
   .[sample(.N)] # para aleatorizar el orden
 
 lista[, persona := personas$V1]
 
-# Nombres en orden alfabético y asigna una persona para agergar. 
-lista[order(nombre)] %>% 
-  .[, paste0(nombre, ": ", persona, "... ")] %>% 
+# Nombres en orden alfabético y asigna una persona para agergar.
+lista[order(nombre)] %>%
+  .[, paste0(nombre, ": ", persona, "... ")] %>%
   cat(sep = "\n")
 
